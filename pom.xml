@@ -17,4 +17,10 @@
         </dependency>
     </dependencies>
 
+    <repositories>
+        <repository>
+            <id>javacv</id>
+            <url>http://maven2.javacv.googlecode.com/git/</url>
+        </repository>
+    </repositories>
 </project>
