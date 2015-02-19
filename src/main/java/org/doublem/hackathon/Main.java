@@ -1,5 +1,6 @@
 package org.doublem.hackathon;
 
+import org.doublem.hackathon.data.Sector;
 import org.opencv.core.*;
 import org.opencv.core.Point;
 import org.opencv.highgui.Highgui;
@@ -11,6 +12,7 @@ import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.awt.image.DataBufferByte;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.LinkedList;
 
 import static org.opencv.imgproc.Imgproc.cvtColor;
@@ -30,11 +32,14 @@ public class Main {
 
     static String NAME = Main.class.getCanonicalName();
     static int IMG_WIDTH = 800;
-    static int IMG_HEIGHT = 800;
+    static int IMG_HEIGHT = 600;
+    private static final int SECTORS_W = 10;
+    private static final int SECTORS_H = 8;
 
     public static void main(String[] args) throws InterruptedException {
         System.out.println(NAME + " OK");
         System.out.println("OpenCV version: " + Core.VERSION);
+        Collection<Sector> sectorCollection = new ArrayList<Sector>(SECTORS_W*SECTORS_H);
 
         LinkedList<Mat> buffer = new LinkedList<Mat>();
 
@@ -42,6 +47,33 @@ public class Main {
         Mat frame = new Mat(IMG_HEIGHT, IMG_WIDTH, CvType.CV_8UC3, new Scalar(0));
 
         capture.open(0);
+        if(!capture.retrieve(frame)){
+            System.out.println("Unable to retrieve!");
+            System.exit(1);
+        }
+
+        int width = frame.width();
+        int height = frame.height();
+        final int SECTOR_W = (int)Math.floor((double)width / SECTORS_W);
+        final int SECTOR_H = (int)Math.floor((double)height / SECTORS_H);
+        final Sector[][] sectors = new Sector[SECTORS_H][SECTORS_W];
+
+        for(int y=0; y<SECTORS_H; y++){
+            for(int x=0; x<SECTORS_W; x++){
+                int correctedWith = SECTOR_W;
+                int correctedHeight = SECTOR_H;
+                if((x * SECTOR_W) + SECTOR_W > IMG_WIDTH){
+                    correctedWith = IMG_WIDTH - ((x * SECTOR_W) + SECTOR_W);
+                }
+                if((y * SECTOR_H) + SECTOR_H > IMG_HEIGHT){
+                    correctedHeight = IMG_HEIGHT - ((y * SECTOR_H) + SECTOR_H);
+                }
+                Sector sector = createSector(x * SECTOR_W+1, y * SECTOR_H+1, correctedWith-1, correctedHeight-1);
+                sectorCollection.add(sector);
+                sectors[y][x] = sector;
+            }
+        }
+
         Boolean status;
         outputImage = convert(frame);
         showImage();
@@ -71,10 +103,18 @@ public class Main {
                     Core.absdiff(next, current, d2);
                     Mat result = new Mat(IMG_HEIGHT, IMG_WIDTH, CvType.CV_8UC1, new Scalar(234));
                     Core.bitwise_and(d1, d2, result);
-                    Imgproc.threshold(result, result, 35, 255, Imgproc.THRESH_BINARY);
+                    Imgproc.threshold(result, result, 25, 255, Imgproc.THRESH_BINARY);
 
                     java.util.List<MatOfPoint> contours = new ArrayList<MatOfPoint>(10);
-                    Imgproc.findContours(result, contours, new Mat(), Imgproc.RETR_TREE, Imgproc.CHAIN_APPROX_TC89_KCOS);
+                   // Imgproc.findContours(result, contours, new Mat(), Imgproc.RETR_TREE, Imgproc.CHAIN_APPROX_TC89_KCOS);
+                    int active = 0;
+                    for(Sector s : sectorCollection){
+                        s.analyzeData(result);
+                        if(s.isActive()){
+                            active++;
+                        }
+                    }
+                    System.out.println("Active sectors: " + active);
 
                     if(contours.size() > 0){
                         System.out.println("Found contours: " + contours.size());
@@ -86,7 +126,8 @@ public class Main {
                         Core.rectangle(dst, new Point(rect.x,rect.y), new Point(rect.x+rect.width,rect.y+rect.height), new Scalar(0,255,0));
                     }
 
-                    image = convert(dst);
+
+                    image = convert(result);
                 }else{
                     image = convert(frame);
                 }
@@ -95,7 +136,7 @@ public class Main {
                 outputImage = image;
                 lbl.setIcon(new ImageIcon(Main.outputImage));
                 jFrame.validate();
-                //Thread.sleep(100);
+                //Thread.sleep(1000);
             }else{
                 System.out.println("Can't fetch image!");
             }
@@ -103,6 +144,11 @@ public class Main {
         }
 
 
+    }
+
+    private static Sector createSector(int x, int y, int w, int h){
+        Rect regionOfInterest = new Rect(x, y, w, h);
+        return new Sector(regionOfInterest, 50, 10, 2000);
     }
 
     private static BufferedImage convert(Mat m){
