@@ -60,7 +60,7 @@ public class Main {
         VideoCapture capture = new VideoCapture();
         Mat frame = new Mat(IMG_HEIGHT, IMG_WIDTH, CvType.CV_8UC3, new Scalar(0));
 
-        capture.open(1);
+        capture.open(0);
         if(!capture.retrieve(frame)){
             System.out.println("Unable to retrieve!");
             System.exit(1);
@@ -230,9 +230,12 @@ public class Main {
             response.put("sectors", rows);
 
             String jsonString = response.toJSONString();
-            httpExchange.sendResponseHeaders(200, jsonString.length());
             OutputStream responseBody = httpExchange.getResponseBody();
+            httpExchange.getResponseHeaders().add("Content-Type", "application/json");
+            httpExchange.getResponseHeaders().add("Access-Control-Allow-Origin", "*");
+            httpExchange.sendResponseHeaders(200, jsonString.length());
             responseBody.write(jsonString.getBytes());
+            responseBody.flush();
             responseBody.close();
         }
     }
