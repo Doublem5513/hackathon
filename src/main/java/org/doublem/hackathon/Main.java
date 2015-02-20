@@ -1,6 +1,12 @@
 package org.doublem.hackathon;
 
+import com.sun.net.httpserver.HttpContext;
+import com.sun.net.httpserver.HttpExchange;
+import com.sun.net.httpserver.HttpHandler;
+import com.sun.net.httpserver.HttpServer;
 import org.doublem.hackathon.data.Sector;
+import org.json.simple.JSONArray;
+import org.json.simple.JSONObject;
 import org.opencv.core.*;
 import org.opencv.core.Point;
 import org.opencv.highgui.Highgui;
@@ -11,6 +17,9 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.awt.image.DataBufferByte;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedList;
@@ -35,8 +44,9 @@ public class Main {
     static int IMG_HEIGHT = 600;
     private static final int SECTORS_W = 10;
     private static final int SECTORS_H = 8;
+    private static Sector[][] sectors;
 
-    public static void main(String[] args) throws InterruptedException {
+    public static void main(String[] args) throws InterruptedException, IOException {
         System.out.println(NAME + " OK");
         System.out.println("OpenCV version: " + Core.VERSION);
         Collection<Sector> sectorCollection = new ArrayList<Sector>(SECTORS_W*SECTORS_H);
@@ -56,7 +66,9 @@ public class Main {
         int height = frame.height();
         final int SECTOR_W = (int)Math.floor((double)width / SECTORS_W);
         final int SECTOR_H = (int)Math.floor((double)height / SECTORS_H);
-        final Sector[][] sectors = new Sector[SECTORS_H][SECTORS_W];
+        sectors = new Sector[SECTORS_H][SECTORS_W];
+
+        HttpServer server = startServer(3344);
 
         for(int y=0; y<SECTORS_H; y++){
             for(int x=0; x<SECTORS_W; x++){
@@ -146,6 +158,15 @@ public class Main {
 
     }
 
+    private static HttpServer startServer(int port) throws IOException {
+        HttpServer server = HttpServer.create(new InetSocketAddress(port), 0);
+        HttpContext dataContext = server.createContext("/data", new DataHandler());
+        server.setExecutor(null);
+        server.start();
+        return server;
+    }
+
+
     private static Sector createSector(int x, int y, int w, int h){
         Rect regionOfInterest = new Rect(x, y, w, h);
         return new Sector(regionOfInterest, 50, 10, 2000);
@@ -174,5 +195,32 @@ public class Main {
         jFrame.add(lbl);
         jFrame.setVisible(true);
         jFrame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+    }
+
+    static class DataHandler implements HttpHandler {
+
+        @Override
+        public void handle(HttpExchange httpExchange) throws IOException {
+
+            JSONObject response = new JSONObject();
+            JSONArray rows = new JSONArray();
+            for(int y = 0; y<SECTORS_H; y++){
+                JSONArray row = new JSONArray();
+                for(int x = 0; x<SECTORS_W; x++){
+                    Sector s = sectors[y][x];
+                    JSONObject sector = new JSONObject();
+                    sector.put("activity", s.isActive());
+                    row.add(sector);
+                }
+                rows.add(row);
+            }
+            response.put("sectors", rows);
+
+            String jsonString = response.toJSONString();
+            httpExchange.sendResponseHeaders(200, jsonString.length());
+            OutputStream responseBody = httpExchange.getResponseBody();
+            responseBody.write(jsonString.getBytes());
+            responseBody.close();
+        }
     }
 }
