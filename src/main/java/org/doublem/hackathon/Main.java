@@ -49,6 +49,10 @@ public class Main {
     public static void main(String[] args) throws InterruptedException, IOException {
         System.out.println(NAME + " OK");
         System.out.println("OpenCV version: " + Core.VERSION);
+        int serverPort = 3344;
+        if(args.length >= 1){
+            serverPort = Integer.parseInt(args[0]);
+        }
         Collection<Sector> sectorCollection = new ArrayList<Sector>(SECTORS_W*SECTORS_H);
 
         LinkedList<Mat> buffer = new LinkedList<Mat>();
@@ -56,7 +60,7 @@ public class Main {
         VideoCapture capture = new VideoCapture();
         Mat frame = new Mat(IMG_HEIGHT, IMG_WIDTH, CvType.CV_8UC3, new Scalar(0));
 
-        capture.open(0);
+        capture.open(1);
         if(!capture.retrieve(frame)){
             System.out.println("Unable to retrieve!");
             System.exit(1);
@@ -68,7 +72,9 @@ public class Main {
         final int SECTOR_H = (int)Math.floor((double)height / SECTORS_H);
         sectors = new Sector[SECTORS_H][SECTORS_W];
 
-        HttpServer server = startServer(3344);
+        System.out.println("Starting server on " + serverPort);
+        HttpServer server = startServer(serverPort);
+        System.out.println("Server started!");
 
         for(int y=0; y<SECTORS_H; y++){
             for(int x=0; x<SECTORS_W; x++){
