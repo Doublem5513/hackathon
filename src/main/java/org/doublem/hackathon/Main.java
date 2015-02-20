@@ -209,16 +209,23 @@ public class Main {
         public void handle(HttpExchange httpExchange) throws IOException {
 
             JSONObject response = new JSONObject();
+            response.put("width", SECTORS_W);
+            response.put("height", SECTORS_H);
             JSONArray rows = new JSONArray();
             for(int y = 0; y<SECTORS_H; y++){
                 JSONArray row = new JSONArray();
                 for(int x = 0; x<SECTORS_W; x++){
                     Sector s = sectors[y][x];
                     JSONObject sector = new JSONObject();
-                    sector.put("activity", s.isActive());
-                    row.add(sector);
+                    if(s.isActive()){
+                        sector.put("x", x);
+                        sector.put("y", y);
+                        rows.add(sector);
+                    }else{
+                        continue;
+                    }
+
                 }
-                rows.add(row);
             }
             response.put("sectors", rows);
 
